@@ -1,5 +1,8 @@
 import fileinput
 import itertools
+import operator
+from collections import Counter, defaultdict, deque
+from util import *
 
 
 TEST_FILE = "testXX.txt"
