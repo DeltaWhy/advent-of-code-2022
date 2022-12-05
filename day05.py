@@ -10,7 +10,7 @@ TEST_FILE = "test05.txt"
 
 
 def solve_part1(lines):
-    layout, moves = tuple(isplit(lines, lambda x: not x.split()))
+    layout, moves = tuple(isplit(lines, lambda x: not x.strip()))
     stacks = defaultdict(deque)
     for row in layout:
         if '[' not in row:
