@@ -27,7 +27,6 @@ def solve_part1(lines):
                 pwd = d
             else:
                 pwd = pwd.rstrip('/') + '/' + d
-            print(pwd)
             all_dirs.add(pwd)
         else:
             # listing
@@ -39,11 +38,14 @@ def solve_part1(lines):
                 name = parts[1]
                 tree[pwd.rstrip('/') + '/' + name] = size
                 dirs = pwd.split('/')
-                print(name)
-                for i in range(len(dirs)):
-                    d = '/'.join(dirs[0:i+1])
-                    print(d)
-                    tree[d] += size
+                if pwd == '/':
+                    print('/')
+                    tree['/'] += size
+                else:
+                    for i in range(len(dirs)):
+                        d = '/'.join(dirs[0:i+1]) or '/'
+                        print(d)
+                        tree[d] += size
     print(all_dirs)
     print(tree)
     res = sum((tree[x] for x in all_dirs if tree[x] < 100000))
@@ -55,7 +57,7 @@ def test_solve_part1():
 
 def solve_part2(lines):
     all_dirs, tree, res = solve_part1(lines)
-    free = 70000000 - tree['']
+    free = 70000000 - tree['/']
     print(free)
     needed = 30000000 - free
     print(needed)
@@ -67,7 +69,7 @@ def solve_part2(lines):
     assert False
 
 def test_solve_part2():
-    assert solve_part2(fileinput.input(TEST_FILE)) == 23352670
+    assert solve_part2(fileinput.input(TEST_FILE)) == 24933642
 
 
 if __name__ == '__main__':
