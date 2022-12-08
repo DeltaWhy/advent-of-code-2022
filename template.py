@@ -8,24 +8,37 @@ from util import *
 TEST_FILE = "testXX.txt"
 
 
-def solve_part1(lines):
-    for line in lines:
+def parse(lines):
+    return [line.strip() for line in lines]
+    # res = []
+    # for line in lines:
+    #     row = line.strip().split()
+    #     res.append(row)
+    # return res
+
+def test_parse():
+    res = parse(fileinput.input(TEST_FILE))
+
+def solve_part1(data):
+    for line in data:
         pass
 
 def test_solve_part1():
-    assert solve_part1(fileinput.input(TEST_FILE)) == None
+    data = parse(fileinput.input(TEST_FILE))
+    assert solve_part1(data) == None
 
-def solve_part2(lines):
-    for line in lines:
+def solve_part2(data):
+    for line in data:
         pass
 
 def test_solve_part2():
-    assert solve_part2(fileinput.input(TEST_FILE)) == None
+    data = parse(fileinput.input(TEST_FILE))
+    assert solve_part2(data) == None
 
 
 if __name__ == '__main__':
-    lines1, lines2 = itertools.tee(fileinput.input())
-    part1 = solve_part1(lines1)
-    part2 = solve_part2(lines2)
+    data = parse(fileinput.input())
+    part1 = solve_part1(data)
+    part2 = solve_part2(data)
     print(part1)
     print(part2)
