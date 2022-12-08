@@ -8,47 +8,49 @@ from util import *
 TEST_FILE = "test08.txt"
 
 
+def is_visible(grid, x, y):
+    done = False
+    for y2 in range(0, y):
+        # up
+        if grid[y2][x] >= grid[y][x]:
+            break
+    else:
+        return True
+    for y2 in range(y+1, len(grid)):
+        # down
+        if grid[y2][x] >= grid[y][x]:
+            break
+    else:
+        return True
+    for x2 in range(0, x):
+        # left
+        if grid[y][x2] >= grid[y][x]:
+            break
+    else:
+        return True
+    for x2 in range(x+1, len(grid[y])):
+        # right
+        if grid[y][x2] >= grid[y][x]:
+            break
+    else:
+        return True
+    return False
+
+def test_is_visible():
+    grid = [[int(c) for c in line.strip()] for line in fileinput.input(TEST_FILE)]
+    assert is_visible(grid, 1, 1)
+    assert is_visible(grid, 2, 1)
+    assert not is_visible(grid, 3, 1)
+    assert not is_visible(grid, 2, 2)
+
 def solve_part1(lines):
     grid = [[int(c) for c in line.strip()] for line in lines]
     # skip outer ring
     visible = 2 * len(grid[0]) + 2 * (len(grid) - 2)
     for y in range(1, len(grid) - 1):
         for x in range(1, len(grid[y]) - 1):
-            done = False
-            for y2 in range(0, y):
-                # up
-                if grid[y2][x] >= grid[y][x]:
-                    break
-            else:
+            if is_visible(grid, x, y):
                 visible += 1
-                done = True
-            if done:
-                continue
-            for y2 in range(y+1, len(grid)):
-                # down
-                if grid[y2][x] >= grid[y][x]:
-                    break
-            else:
-                visible += 1
-                done = True
-            if done:
-                continue
-            for x2 in range(0, x):
-                # left
-                if grid[y][x2] >= grid[y][x]:
-                    break
-            else:
-                visible += 1
-                done = True
-            if done:
-                continue
-            for x2 in range(x+1, len(grid[y])):
-                # right
-                if grid[y][x2] >= grid[y][x]:
-                    break
-            else:
-                visible += 1
-                done = True
     return visible
 
 def test_solve_part1():
