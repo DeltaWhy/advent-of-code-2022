@@ -3,6 +3,7 @@ from functools import reduce
 import itertools
 import operator
 import math
+import re
 
 
 def with_index(iterable):
@@ -142,3 +143,22 @@ def product(iterable, key=None):
         return reduce(lambda acc, x: acc * key(x), iterable, 1)
     else:
         return reduce(lambda acc, x: acc * x, iterable)
+
+def numbers(s: str) -> list[int]:
+    """
+    >>> numbers('for i in 1 to 10')
+    [1, 10]
+    >>> numbers('1, 2, 3')
+    [1, 2, 3]
+    >>> numbers('-1 items from 2 - 3')
+    [-1, 2, 3]
+    >>> numbers('-1 items from 2-3')
+    [-1, 2, 3]
+    >>> numbers('[-1, 2, 3, 100, -99]')
+    [-1, 2, 3, 100, -99]
+    """
+    pattern = re.compile(r'''(?x)(?:(?: # without capturing,
+        (?<=[^0-9])|^) # look-behind for a non-digit or start of string
+        -)? # followed by minus, all optional
+        \b[0-9]+\b # finally, a series of digits''')
+    return [int(match) for match in re.findall(pattern, s)]
