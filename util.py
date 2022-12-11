@@ -1,4 +1,5 @@
 import collections
+from functools import reduce
 import itertools
 import operator
 import math
@@ -36,7 +37,7 @@ def isplit(iterable, key_or_func=None):
     """
     it = iter(iterable)
     if key_or_func is None:
-        key_or_func = operator.not_
+        key_or_func = lambda x: hasattr(x, 'strip') and not x.strip()
     f = key_or_func if callable(key_or_func) else lambda x: x == key_or_func
     while (l := list(itertools.takewhile(lambda x: not f(x), it))):
         yield l
@@ -135,3 +136,9 @@ class Vec2(collections.namedtuple('Vec2', ['x', 'y'])):
     def cneighbors(self):
         return [self + d for d in [
             (-1, 0), (1, 0), (0, -1), (0, 1)]]
+
+def product(iterable, key=None):
+    if key:
+        return reduce(lambda acc, x: acc * key(x), iterable, 1)
+    else:
+        return reduce(lambda acc, x: acc * x, iterable)
