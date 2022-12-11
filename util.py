@@ -1,4 +1,5 @@
 import collections
+from dataclasses import dataclass
 from functools import reduce
 import itertools
 import operator
@@ -162,3 +163,180 @@ def numbers(s: str) -> list[int]:
         -)? # followed by minus, all optional
         \b[0-9]+\b # finally, a series of digits''')
     return [int(match) for match in re.findall(pattern, s)]
+
+class Rect(collections.namedtuple('Rect', ['x1', 'y1', 'x2', 'y2'])):
+    def __new__(cls, *args, **kwargs):
+        """
+        >>> Rect(1, 2, 3, 4)
+        Rect((1, 2), (3, 4))
+        >>> Rect((1, 2), (3, 4))
+        Rect((1, 2), (3, 4))
+        >>> Rect(Vec2(1, 2), (3, 4))
+        Rect((1, 2), (3, 4))
+        >>> Rect(1, 2, w=3, h=4)
+        Rect((1, 2), (4, 6))
+        >>> Rect((1, 2), w=3, h=4)
+        Rect((1, 2), (4, 6))
+        """
+        if len(args) == 4:
+            self = super().__new__(cls, *args)
+        elif len(args) == 2 and not kwargs:
+            self = super().__new__(cls, args[0][0], args[0][1], args[1][0], args[1][1])
+        elif len(args) == 2 and 'h' in kwargs and 'w' in kwargs:
+            self = super().__new__(cls, args[0], args[1], args[0] + kwargs['w'], args[1] + kwargs['h'])
+        elif len(args) == 1 and 'h' in kwargs and 'w' in kwargs:
+            self = super().__new__(cls, args[0][0], args[0][1], args[0][0] + kwargs['w'], args[0][1] + kwargs['h'])
+        assert self.x1 <= self.x2 and self.y1 <= self.y2
+        return self
+
+    @property
+    def w(self):
+        return self.x2 - self.x1
+
+    @property
+    def h(self):
+        return self.y2 - self.y1
+
+    @property
+    def p1(self):
+        return Vec2(self.x1, self.y1)
+
+    @property
+    def p2(self):
+        return Vec2(self.x2, self.y2)
+
+    def __repr__(self):
+        return f'Rect(({self.x1}, {self.y1}), ({self.x2}, {self.y2}))'
+
+    def __contains__(self, other):
+        """
+        >>> Rect(1, 1, 2, 2) in Rect(0, 0, 3, 3)
+        True
+        >>> Rect(1, 1, 3, 3) in Rect(0, 0, 2, 2)
+        False
+        >>> (0, 0) in Rect(-1, -1, 1, 1)
+        True
+        >>> (1, 2) in Rect(-1, -1, 1, 1)
+        False
+        """
+        if isinstance(other, Rect):
+            return other.p1 in self and other.p2 in self
+        elif isinstance(other, Vec2) or len(other) == 2:
+            return self.x1 <= other[0] <= self.x2 and self.y1 <= other[1] <= self.y2
+        else:
+            raise ValueError(other)
+
+class Grid(list):
+    def __init__(self, iterable):
+        """
+        >>> Grid(range(4))
+        Grid[[0], [1], [2], [3]]
+        >>> Grid([range(3), range(3, 6)])
+        Grid[[0, 1, 2], [3, 4, 5]]
+        >>> Grid(groups(range(10), 3)).pprint()
+        Grid[[0 1 2]
+             [3 4 5]
+             [6 7 8]
+             [9]]
+        """
+        super().__init__(((list(x) if isinstance(x, collections.abc.Iterable) else [x]) for x in iterable))
+
+    def __getitem__(self, index):
+        """
+        >>> g = Grid([[1, 2], [3, 4]])
+        >>> g[(0, 1)]
+        3
+        >>> g[0]
+        [1, 2]
+        >>> g[1:]
+        Grid[[3, 4]]
+        >>> Grid(['abc', 'def', 'ghi'])[Rect((1, 1), (2, 2))]
+        Grid[['e', 'f'], ['h', 'i']]
+        """
+        if isinstance(index, int):
+            return super().__getitem__(index)
+        elif isinstance(index, slice):
+            return Grid(super().__getitem__(index))
+        elif isinstance(index, Rect):
+            return Grid((row[index.x1:index.x2+1] for row in self[index.y1:index.y2+1]))
+        else:
+            return super().__getitem__(index[1])[index[0]]
+
+    def __repr__(self):
+        """
+        >>> Grid([[1, 2], [3, 4]])
+        Grid[[1, 2], [3, 4]]
+        """
+        return f'Grid{super().__repr__()}'
+
+    def pprint(self, indent=0):
+        """
+        >>> g = Grid([[1, 2], [3, 4]])
+        >>> g.pprint()
+        Grid[[1 2]
+             [3 4]]
+        >>> g.pprint(indent=2)
+          Grid[[1 2]
+               [3 4]]
+        >>> Grid([[100, 2], [3, 4]]).pprint()
+        Grid[[100   2]
+             [  3   4]]
+        >>> Grid(['abc', 'def']).pprint()
+        Grid[[a b c]
+             [d e f]]
+        """
+        max_len = 0
+        for row in self:
+            for item in row:
+                l = len(f'{item}')
+                max_len = max(max_len, l)
+        fmt = '{:' + str(max_len) + '}'
+        print(' '*indent, end='')
+        print('Grid[[', end='')
+        print(' '.join((fmt.format(item) for item in self[0])), end=']')
+        for row in self[1:]:
+            print('\n' + ' ' * (indent + 5), end='')
+            print('[' + ' '.join((fmt.format(item) for item in row)), end=']')
+        print(']')
+
+    def coords(self):
+        for y in range(len(self)):
+            for x in range(len(self[y])):
+                yield Vec2(x, y)
+
+    def items(self):
+        for y in range(len(self)):
+            for x in range(len(self[y])):
+                yield (Vec2(x, y), self[y][x])
+
+    def compact(self):
+        """
+        >>> print(Grid.of('x', 3, 3).compact())
+        xxx
+        xxx
+        xxx
+        >>> print(Grid.of(True, 3, 3).compact())
+        TTT
+        TTT
+        TTT
+        >>> print(Grid.of(10, 3, 3).compact())
+        101010
+        101010
+        101010
+        >>> print(Grid.of(Vec2(0,0), 2, 2).compact())
+        (0, 0)(0, 0)
+        (0, 0)(0, 0)
+        """
+        return '\n'.join((''.join(((str(item)[0] if isinstance(item, bool) else str(item)) for item in row)) for row in self))
+
+    @classmethod
+    def of_size(cls, w, h):
+        return cls.of(None, w, h)
+
+    @classmethod
+    def of(cls, item, w, h):
+        """
+        >>> Grid.of(0, 2, 2)
+        Grid[[0, 0], [0, 0]]
+        """
+        return cls([[item] * w] * h)
