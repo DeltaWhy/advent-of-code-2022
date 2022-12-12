@@ -262,6 +262,20 @@ class Grid(list):
         else:
             return super().__getitem__(index[1])[index[0]]
 
+    def __setitem__(self, index, value):
+        """
+        >>> g = Grid([[1, 2], [3, 4]])
+        >>> g[(0, 1)] = 'x'
+        >>> g[(0, 1)]
+        'x'
+        """
+        if isinstance(index, int):
+            return super().__setitem__(index, value)
+        elif isinstance(index, slice):
+            return Grid(super().__setitem__(index, value))
+        else:
+            return super().__getitem__(index[1]).__setitem__(index[0], value)
+
     def __repr__(self):
         """
         >>> Grid([[1, 2], [3, 4]])
