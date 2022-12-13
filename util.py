@@ -174,28 +174,28 @@ class Rect(collections.namedtuple('Rect', ['x1', 'y1', 'x2', 'y2'])):
         >>> Rect(Vec2(1, 2), (3, 4))
         Rect((1, 2), (3, 4))
         >>> Rect(1, 2, w=3, h=4)
-        Rect((1, 2), (4, 6))
+        Rect((1, 2), (3, 5))
         >>> Rect((1, 2), w=3, h=4)
-        Rect((1, 2), (4, 6))
+        Rect((1, 2), (3, 5))
         """
         if len(args) == 4:
             self = super().__new__(cls, *args)
         elif len(args) == 2 and not kwargs:
             self = super().__new__(cls, args[0][0], args[0][1], args[1][0], args[1][1])
         elif len(args) == 2 and 'h' in kwargs and 'w' in kwargs:
-            self = super().__new__(cls, args[0], args[1], args[0] + kwargs['w'], args[1] + kwargs['h'])
+            self = super().__new__(cls, args[0], args[1], args[0] + kwargs['w'] - 1, args[1] + kwargs['h'] - 1)
         elif len(args) == 1 and 'h' in kwargs and 'w' in kwargs:
-            self = super().__new__(cls, args[0][0], args[0][1], args[0][0] + kwargs['w'], args[0][1] + kwargs['h'])
+            self = super().__new__(cls, args[0][0], args[0][1], args[0][0] + kwargs['w'] - 1, args[0][1] + kwargs['h'] - 1)
         assert self.x1 <= self.x2 and self.y1 <= self.y2
         return self
 
     @property
     def w(self):
-        return self.x2 - self.x1
+        return self.x2 - self.x1 + 1
 
     @property
     def h(self):
-        return self.y2 - self.y1
+        return self.y2 - self.y1 + 1
 
     @property
     def p1(self):
@@ -354,3 +354,6 @@ class Grid(list):
         Grid[[0, 0], [0, 0]]
         """
         return cls([[item] * w] * h)
+
+    def rect(self):
+        return Rect(0, 0, w=len(self[0]), h=len(self))
