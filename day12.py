@@ -17,7 +17,7 @@ def test_parse():
     res = parse(fileinput.input(TEST_FILE))
 
 def solve_part1(grid):
-    rect = Rect(0, 0, w=len(grid[0])-1, h=len(grid)-1)
+    rect = Rect(0, 0, w=len(grid[0]), h=len(grid))
     for c, v in grid.items():
         if v == 'E':
             end = c
@@ -54,7 +54,7 @@ def test_solve_part1():
     assert solve_part1(data) == 31
 
 def solve_part2(grid):
-    rect = Rect(0, 0, w=len(grid[0])-1, h=len(grid)-1)
+    rect = Rect(0, 0, w=len(grid[0]), h=len(grid))
     for c, v in grid.items():
         if v == 'E':
             end = c
