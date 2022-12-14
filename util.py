@@ -226,6 +226,11 @@ class Rect(collections.namedtuple('Rect', ['x1', 'y1', 'x2', 'y2'])):
         else:
             raise ValueError(other)
 
+    def coords(self):
+        for y in range(self.y1, self.y2 + 1):
+            for x in range(self.x1, self.x2 + 1):
+                yield Vec2(x, y)
+
 class Grid(list):
     def __init__(self, iterable):
         """
