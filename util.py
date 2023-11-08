@@ -362,3 +362,77 @@ class Grid(list):
 
     def rect(self):
         return Rect(0, 0, w=len(self[0]), h=len(self))
+
+
+class Vec3(collections.namedtuple('Vec3', ['x', 'y', 'z'])):
+    def __add__(self, other):
+        """
+        >>> Vec3(1, 2, 3) + Vec3(3, 4, 5)
+        (4, 6, 8)
+        >>> Vec3(1, 2, 3) + (3, 4, 5)
+        (4, 6, 8)
+        """
+        return Vec3(self.x + other[0], self.y + other[1], self.z + other[2])
+
+    def __sub__(self, other):
+        """
+        >>> Vec3(1, 2, 3) - Vec3(3, 4, 5)
+        (-2, -2, -2)
+        >>> Vec3(1, 2, 3) - (3, 4, 5)
+        (-2, -2, -2)
+        """
+        return Vec3(self.x - other[0], self.y - other[1], self.z - other[2])
+
+    def __mul__(self, other):
+        """
+        >>> Vec3(-1, 1, 2) * 3
+        (-3, 3, 6)
+        """
+        return Vec3(self.x * other, self.y * other, self.z * other)
+
+    def __bool__(self):
+        """
+        >>> bool(Vec3(0, 0, 0))
+        False
+        >>> bool(Vec3(1, 0, 0))
+        True
+        """
+        return not(self.x == 0 and self.y == 0 and self.z == 0)
+
+    def __repr__(self):
+        return f'({self.x}, {self.y}, {self.z})'
+
+    def __abs__(self):
+        return Vec3(abs(self.x), abs(self.y), abs(self.z))
+
+    def __neg__(self):
+        return Vec3(-self.x, -self.y, -self.z)
+
+    def mag(self):
+        """
+        >>> Vec3(3, 4, 0).mag()
+        5.0
+        """
+        return math.sqrt(self.x**2 + self.y**2 + self.z**2)
+
+    def manhattan(self):
+        """
+        >>> Vec3(3, 4, 5).manhattan()
+        12
+        """
+        return abs(self.x) + abs(self.y) + abs(self.z)
+
+    def dir(self):
+        """
+        >>> Vec3(0, -2, 0).dir()
+        (0, -1, 0)
+        """
+        return Vec3(sign(self.x), sign(self.y), sign(self.z))
+
+    def neighbors(self):
+        return [self + d for d in itertools.product((-1, 0, 1), (-1, 0, 1), (-1, 0, 1)) if d != (0, 0, 0)]
+
+    def cneighbors(self):
+        return [self + d for d in [
+            (-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)]]
+
