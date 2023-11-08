@@ -88,79 +88,102 @@ def test_solve_part1():
     data = parse(fileinput.input(TEST_FILE))
     assert solve_part1(data) == 1651
 
-State2 = namedtuple('State2', ['time', 'pos1', 'pos2', 'opened'])
+def shortest_paths(valves):
+    dist = defaultdict(lambda: float('inf'))
+    for v1 in valves:
+        dist[(v1, v1)] = 0
+        for v2 in valves[v1].neighbors:
+            dist[(v1, v2)] = 1
+            dist[(v2, v1)] = 1
+    for v3 in valves:
+        for v2 in valves:
+            for v1 in valves:
+                if dist[(v1, v2)] > dist[(v1, v3)] + dist[(v3, v2)]:
+                    dist[(v1, v2)] = dist[(v1, v3)] + dist[(v3, v2)]
+                    dist[(v2, v1)] = dist[(v1, v2)]
+    return dist
 
 def solve_part2(valves):
+    distances = shortest_paths(valves)
     best_action: dict[State, str] = {}
-    def next_state(state: State2, actions: tuple[str, str]):
-        opened = list(state.opened)
-        pos1, pos2 = state.pos1, state.pos2
-        if actions[0] == 'open':
-            opened.append(pos1)
-        elif actions[0]:
-            pos1 = actions[0]
-        if actions[1] == 'open':
-            opened.append(pos2)
-        elif actions[1]:
-            pos2 = actions[1]
-        opened = tuple(sorted(opened))
-        if pos1 > pos2:
-            pos1, pos2 = pos2, pos1
-        return State2(state.time + 1, pos1, pos2, opened)
+    def next_state(state: State, action: str):
+        return State(state.time + 1 + distances[(state.pos, action)], action, tuple(sorted([action]+list(state.opened))))
 
     all_open = tuple(sorted((x.id for x in valves.values() if x.rate != 0)))
 
     def next_actions(state: State):
         if state.opened == all_open:
             return []
-        if state.pos1 in state.opened or valves[state.pos1].rate == 0:
-            actions1 = valves[state.pos1].neighbors
         else:
-            actions1 = ['open'] + valves[state.pos1].neighbors
-        if state.pos2 in state.opened or valves[state.pos2].rate == 0:
-            actions2 = valves[state.pos2].neighbors
-        else:
-            actions2 = ['open'] + valves[state.pos2].neighbors
-        return list(itertools.product(actions1, actions2))
+            return [x for x in valves if x not in state.opened and valves[x].rate != 0]
 
-    def gain(state: State, actions: tuple[str, str]):
+    def gain(state: State, action: str, max_time: int = 26):
+        next_time = state.time + 1 + distances[(state.pos, action)]
+        if next_time > max_time:
+            return 0
+        return valves[action].rate * (max_time - next_time)
+
+    @cache
+    def heuristic(state, max_time: int = 26):
+        """The max possible score for a state would be opening one valve each turn."""
+        remaining_set = set(all_open) - set(state.opened)
+        remaining = {valve: valves[valve].rate for valve in remaining_set}
+        to_visit = list(sorted(remaining.items(), key=lambda x: x[1], reverse=True))
         res = 0
-        if state.pos1 == state.pos2 and 'open' in actions:
-            return valves[state.pos1].rate * (26 - state.time - 1)
-        if actions[0] == 'open':
-            res += valves[state.pos1].rate * (26 - state.time - 1)
-        if actions[1] == 'open':
-            res += valves[state.pos2].rate * (26 - state.time - 1)
+        time = state.time
+        for _, rate in to_visit:
+            time += 1
+            if time <= max_time:
+                res += rate * (max_time - time)
         return res
 
     @cache
     def dfs(state):
         #print(state)
-        if state.time >= 26:
-            return 0
         actions = next_actions(state)
         if not actions:
             return 0
         values = {}
         for action in actions:
             st = next_state(state, action)
+            if st.time > 26:
+                continue
+            # it's actually slower with pruning
+            #if values and gain(state, action) + heuristic(st) < max(values.values()):
+            #    # prune
+            #    continue
             values[action] = gain(state, action) + dfs(st)
-            print(state, action, gain(state, action), values[action])
+            #print(state, action, gain(state, action), values[action])
+        if not values:
+            return 0
         best_action[state], ans = max(values.items(), key=lambda x: x[1])
         return ans
 
-    ans = dfs(State2(0, 'AA', 'AA', tuple()))
-    # retrace path
-    st = State2(0, 'AA', 'AA', tuple())
-    while st.time <= 26:
-        if st not in best_action:
-            break
-        print(st, best_action.get(st))
-        st = next_state(st, best_action.get(st))
-    return ans
+    n_combos = 2**len(all_open)
+    from itertools import chain, combinations
+
+    def powerset(iterable):
+        "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+        s = list(iterable)
+        return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+    n_visited = 0
+    best_score = 0
+    for elf_set in powerset(all_open):
+        elephant_set = set(all_open) - set(elf_set)
+        elf_score = dfs(State(0, 'AA', tuple(sorted(elephant_set))))
+        elephant_score = dfs(State(0, 'AA', tuple(sorted(elf_set))))
+        n_visited += 1
+        if elf_score + elephant_score > best_score:
+            best_score = elf_score + elephant_score
+        print(f'Visited {n_visited}/{n_combos}\tcurrent {elf_score + elephant_score}\tbest {best_score}')
+
+    return best_score
+
 
 def test_solve_part2():
     data = parse(fileinput.input(TEST_FILE))
+    print(shortest_paths(data))
     assert solve_part2(data) == 1707
 
 
@@ -168,6 +191,7 @@ if __name__ == '__main__':
     lines = list(fileinput.input())
     data = parse(lines)
     part1 = solve_part1(data)
+    print(part1)
     data = parse(lines)
     part2 = solve_part2(data)
     print(part1)
