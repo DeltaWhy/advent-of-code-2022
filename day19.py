@@ -1,3 +1,4 @@
+import enum
 import fileinput
 import itertools
 import operator
@@ -10,39 +11,30 @@ from util import *
 TEST_FILE = "test19.txt"
 
 
-@dataclass(frozen=True)
-class Cost:
-    ore: int
-    clay: int = 0
-    obsidian: int = 0
-
-@dataclass(frozen=True)
-class Blueprint:
-    id: int
-    ore: Cost
-    clay: Cost
-    obsidian: Cost
-    geode: Cost
+Blueprint = namedtuple('Blueprint', ['id', 'ore_ore', 'clay_ore', 'obsidian_ore', 'obsidian_clay', 'geode_ore', 'geode_obsidian'])
 
 def parse(lines):
     res = []
     for line in lines:
         data = numbers(line)
-        res.append(Blueprint(id=data[0],
-                             ore=Cost(data[1]),
-                             clay=Cost(data[2]),
-                             obsidian=Cost(ore=data[3], clay=data[4]),
-                             geode=Cost(ore=data[5], obsidian=data[6])))
+        res.append(Blueprint(*data))
     return res
 
 def test_parse():
     res = parse(fileinput.input(TEST_FILE))
     print(res)
 
+class Action(enum.Enum):
+    WAIT = enum.auto()
+    BUILD_ORE = enum.auto()
+    BUILD_CLAY = enum.auto()
+    BUILD_OBSIDIAN = enum.auto()
+    BUILD_GEODE = enum.auto()
+
 @dataclass(unsafe_hash=True)
 class State:
     blueprint: Blueprint = field(repr=False)
-    time: int = 0
+    time_left: int = 24
     ore_bots: int = 1
     clay_bots: int = 0
     obsidian_bots: int = 0
@@ -54,67 +46,77 @@ class State:
 
     def next(self, action = None):
         new_state = State(**self.__dict__)
-        new_state.time += 1
+        new_state.time_left -= 1
         new_state.ore += self.ore_bots
         new_state.clay += self.clay_bots
         new_state.obsidian += self.obsidian_bots
         new_state.geodes += self.geode_bots
-        if action is None:
+        if action == Action.WAIT:
             pass
-        elif action == 'ore_bot':
+        elif action == Action.BUILD_ORE:
             new_state.ore_bots += 1
-            new_state.ore -= self.blueprint.ore.ore
-        elif action == 'clay_bot':
+            new_state.ore -= self.blueprint.ore_ore
+        elif action == Action.BUILD_CLAY:
             new_state.clay_bots += 1
-            new_state.ore -= self.blueprint.clay.ore
-        elif action == 'obsidian_bot':
+            new_state.ore -= self.blueprint.clay_ore
+        elif action == Action.BUILD_OBSIDIAN:
             new_state.obsidian_bots += 1
-            new_state.ore -= self.blueprint.obsidian.ore
-            new_state.clay -= self.blueprint.obsidian.clay
-        elif action == 'geode_bot':
+            new_state.ore -= self.blueprint.obsidian_ore
+            new_state.clay -= self.blueprint.obsidian_clay
+        elif action == Action.BUILD_GEODE:
             new_state.geode_bots += 1
-            new_state.ore -= self.blueprint.geode.ore
-            new_state.obsidian -= self.blueprint.geode.obsidian
+            new_state.ore -= self.blueprint.geode_ore
+            new_state.obsidian -= self.blueprint.geode_obsidian
         else:
             raise ValueError()
         return new_state
 
     def actions(self):
-        if self.time >= 24:
+        if self.time_left == 0:
             return []
-        res = [None]
-        if self.ore >= self.blueprint.ore.ore:
-            res.insert(0, 'ore_bot')
-        if self.ore >= self.blueprint.clay.ore:
-            res.insert(0, 'clay_bot')
-        if self.ore >= self.blueprint.obsidian.ore and self.clay >= self.blueprint.obsidian.clay:
-            res.insert(0, 'obsidian_bot')
-        #if self.ore >= self.blueprint.geode.ore and self.obsidian >= self.blueprint.geode.obsidian:
-        #    res.insert(0, 'geode_bot')
-        if self.ore >= self.blueprint.geode.ore and self.obsidian >= self.blueprint.geode.obsidian:
-            return ['geode_bot']
-        #if self.ore >= self.blueprint.obsidian.ore and self.clay >= self.blueprint.obsidian.clay:
-        #    return ['obsidian_bot']
-        #if self.ore >= self.blueprint.clay.ore:
-        #    return ['clay_bot']
-        #if self.ore >= self.blueprint.ore.ore:
-        #    return ['ore_bot']
+        res = [Action.WAIT]
+        if self.ore >= self.blueprint.geode_ore and self.obsidian >= self.blueprint.geode_obsidian:
+            # always build geode robot if possible
+            return [Action.BUILD_GEODE]
+        if self.ore >= self.blueprint.ore_ore:
+            res.insert(0, Action.BUILD_ORE)
+        if self.ore >= self.blueprint.clay_ore:
+            res.insert(0, Action.BUILD_CLAY)
+        if self.ore >= self.blueprint.obsidian_ore and self.clay >= self.blueprint.obsidian_clay:
+            res.insert(0, Action.BUILD_OBSIDIAN)
         return res
 
 def blueprint_value(blueprint):
-    best_value_at_time = defaultdict(lambda: 0)
-    best_action: dict[State, str] = {}
-
     def gain(state: State, action: str):
-        if action == 'geode_bot':
-            return (24 - state.time - 1)
+        if action == Action.BUILD_GEODE:
+            return state.time_left - 1
         else:
             return 0
 
+    def heuristic(state: State) -> int:
+        # Max possible future gain from a state: build a geode bot on every remaining turn.
+        # gaussian summation
+        # (time_left) + (time_left - 1) + ... + 2 + 1 ==
+        return (state.time_left + 1) * state.time_left / 2
+
+        # Better heuristic: assume we can only build geode bots starting on a future turn.
+        # Assume we can build obsidian bots every turn until then.
+        # At t=0 we have gained 0 obsidian, at t=1 bots_0, at t=2 (bots_0) + (bots_0+1), at t=3 (bots_0) + (bots_0+1) + (bots_0+2), ..
+        # So at t=n for n > 1 we have (bots_0*n) + (n*(n-1)/2) == (bots_0*n) + (n**2/2) - (n/2)
+        # == (bots_0-0.5)*n + (n**2/2)
+
+    def realized_value(state: State) -> int:
+        return state.geodes + state.time_left * state.geode_bots
+
+    pruned = 0
+
+    best_at_time = defaultdict(lambda: 0)
+
     @cache
     def dfs(state):
-        #print(state)
-        if state.time > 24:
+        nonlocal pruned
+        #print(pruned, dfs.cache_info())
+        if state.time_left <= 0:
             return 0
         actions = state.actions()
         if not actions:
@@ -122,39 +124,32 @@ def blueprint_value(blueprint):
         values = {}
         for action in actions:
             st = state.next(action)
-            # prune states that are definitely worse than optimal
-            for i in range(st.time + 1):
-                if st.geodes < best_value_at_time[i]:
-                    continue
-            if st.geodes > best_value_at_time[st.time]:
-                best_value_at_time[st.time] = st.geodes
-                print(best_value_at_time)
+            if realized_value(st) > best_at_time[st.time_left]:
+                best_at_time[st.time_left] = realized_value(st)
+            if realized_value(st) + heuristic(st) <= best_at_time[st.time_left]:
+                pruned += 1
+                continue
             values[action] = gain(state, action) + dfs(st)
-            #print(state, action, gain(state, action), values[action])
-        best_action[state], ans = max(values.items(), key=lambda x: x[1])
-        #import pdb; pdb.set_trace()
-        return ans
+        return max(values.values()) if values else 0
 
-    start = State(blueprint=blueprint, time=0, ore=0, clay=0, obsidian=0, geodes=0, ore_bots=1, clay_bots=0, obsidian_bots=0, geode_bots=0)
-    #import pdb; pdb.set_trace()
+    start = State(blueprint=blueprint, time_left=24, ore=0, clay=0, obsidian=0, geodes=0, ore_bots=1, clay_bots=0, obsidian_bots=0, geode_bots=0)
     ans = dfs(start)
-    # retrace path
-    st = start
-    while st.time <= 24:
-        if st not in best_action:
-            break
-        print(st, best_action.get(st))
-        st = st.next(best_action.get(st))
+    print(pruned, dfs.cache_info())
     return ans
 
 def solve_part1(data):
-    for line in data:
-        pass
+    res = 0
+    for blueprint in data:
+        value = blueprint_value(blueprint)
+        print(value, blueprint)
+        res += blueprint_value(blueprint) * blueprint.id
+    return res
 
 def test_solve_part1():
     data = parse(fileinput.input(TEST_FILE))
     assert blueprint_value(data[0]) == 9
-    assert solve_part1(data) == None
+    assert blueprint_value(data[1]) == 12
+    assert solve_part1(data) == 33
 
 def solve_part2(data):
     for line in data:
