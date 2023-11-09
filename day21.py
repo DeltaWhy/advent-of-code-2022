@@ -24,7 +24,6 @@ def parse(lines):
 
 def test_parse():
     res = parse(fileinput.input(TEST_FILE))
-    print(res)
 
 def value(monkeys, monkey):
     if isinstance(monkeys[monkey], int):
@@ -50,9 +49,70 @@ def test_solve_part1():
     data = parse(fileinput.input(TEST_FILE))
     assert solve_part1(data) == 152
 
+def symvalue(monkeys, monkey):
+    if monkey == 'humn':
+        return 'humn'
+    if isinstance(monkeys[monkey], int):
+        return monkeys[monkey]
+    ma, op, mb = monkeys[monkey]
+    a = symvalue(monkeys, ma)
+    b = symvalue(monkeys, mb)
+    if isinstance(a, int) and isinstance(b, int):
+        if op == '+':
+            return a + b
+        elif op == '-':
+            return a - b
+        elif op == '*':
+            return a * b
+        elif op == '/':
+            return a // b
+        else:
+            raise ValueError()
+    return (a, op, b)
+
+def solve(eqn, answer):
+    """
+    >>> solve('humn', 42)
+    42
+    >>> solve(('humn', '+', 2), 42)
+    40
+    >>> solve((2, '*', ('humn', '+', 4)), 42)
+    17
+    >>> solve((42, '-', 'humn'), 40)
+    2
+    """
+    if isinstance(eqn, str):
+        return answer
+    a, op, b = eqn
+    if isinstance(a, int):
+        if op == '+':
+            return solve(b, answer - a)
+        elif op == '-':
+            return solve(b, -(answer - a))
+        elif op == '*':
+            return solve(b, answer // a)
+        elif op == '/':
+            raise ValueError()
+            return solve(b, answer * a)
+    elif isinstance(b, int):
+        if op == '+':
+            return solve(a, answer - b)
+        elif op == '-':
+            return solve(a, answer + b)
+        elif op == '*':
+            return solve(a, answer // b)
+        elif op == '/':
+            return solve(a, answer * b)
+    raise ValueError()
+
 def solve_part2(data):
-    for line in data:
-        pass
+    del data['humn']
+    a = symvalue(data, data['root'][0])
+    b = symvalue(data, data['root'][2])
+    if isinstance(a, int):
+        return solve(b, a)
+    else:
+        return solve(a, b)
 
 def test_solve_part2():
     data = parse(fileinput.input(TEST_FILE))
