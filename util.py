@@ -363,6 +363,14 @@ class Grid(list):
     def rect(self):
         return Rect(0, 0, w=len(self[0]), h=len(self))
 
+    def __contains__(self, coord):
+        return coord in self.rect()
+
+    def get(self, coord, default=None):
+        if coord in self:
+            return self[coord]
+        return default
+
 
 class Vec3(collections.namedtuple('Vec3', ['x', 'y', 'z'])):
     def __add__(self, other):
