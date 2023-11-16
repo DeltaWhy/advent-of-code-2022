@@ -3,9 +3,11 @@ import itertools
 import operator
 import math
 from collections import Counter, defaultdict, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import reduce, cache
 from util import *
+from queue import PriorityQueue
+from typing import Any
 
 
 TEST_FILE = "test24.txt"
@@ -83,10 +85,16 @@ def test_advance():
         blizzards = advance(bounds, blizzards)
         #render(bounds, start, blizzards, goal)
 
+@dataclass(order=True)
+class PrioritizedItem:
+    priority: int
+    item: Any=field(compare=False)
+
 def solve_part1(bounds, start, blizzards, goal):
     # steps repeat after LCM of height and width
     # precompute blizzard positions at each time
     mod = math.lcm(bounds.w - 2, bounds.h - 2)
+    print('mod: ', mod)
     times = []
     for i in range(mod):
         times.append(blizzards)
@@ -97,21 +105,21 @@ def solve_part1(bounds, start, blizzards, goal):
     visited = {}
     best_actions = {}
 
-    def dfs(pos, round) -> int:
-        if round > 495:
-            # max recursion depth is somewhere around here
-            return float('inf')
-        nonlocal res, pruned
+    q = PriorityQueue()
+    q.put(PrioritizedItem((start - goal).manhattan(), (start, 0)))
+
+    while q.qsize() > 0:
+        item = q.get()
+        pos, round = item.item
         if round < visited.get((pos, round % mod), float('inf')):
             visited[(pos, round % mod)] = round
         if pos == goal:
             print(pos, round)
             if round < res:
                 res = round
-            return round
+            continue
         blizzards = times[(round + 1) % mod]
-        best_action = WAIT
-        best_value = float('inf')
+        # order matters a bit here - prefer not to backtrack
         possible_actions = [DOWN, RIGHT, WAIT, UP, LEFT]
         for action in possible_actions:
             next_pos = pos + DIRECTIONS[action]
@@ -128,15 +136,7 @@ def solve_part1(bounds, start, blizzards, goal):
                 pruned += 1
                 continue
             if next_pos not in [b[0] for b in blizzards]:
-                value = dfs(next_pos, next_round)
-                if value < best_value:
-                    best_value = value
-                    best_action = action
-        if best_value < float('inf'):
-            best_actions[(pos, round)] = best_action
-        return best_value
-
-    dfs(start, 0)
+                q.put(PrioritizedItem((next_pos - goal).manhattan(), (next_pos, next_round)))
     return res
 
 def test_solve_part1():
