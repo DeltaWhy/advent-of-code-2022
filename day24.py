@@ -103,7 +103,6 @@ def solve_part1(bounds, start, blizzards, goal):
     pruned = 0
     # earliest time we've seen each state
     visited = {}
-    best_actions = {}
 
     q = PriorityQueue()
     q.put(PrioritizedItem((start - goal).manhattan(), (start, 0)))
@@ -143,13 +142,69 @@ def test_solve_part1():
     data = parse(fileinput.input(TEST_FILE))
     assert solve_part1(*data) == 18
 
-def solve_part2(data):
-    for line in data:
-        pass
+def solve_part2(bounds, start, blizzards, goal):
+    # steps repeat after LCM of height and width
+    # precompute blizzard positions at each time
+    mod = math.lcm(bounds.w - 2, bounds.h - 2)
+    print('mod: ', mod)
+    times = []
+    for i in range(mod):
+        times.append(blizzards)
+        blizzards = advance(bounds, blizzards)
+    res0 = astar(bounds, start, goal, times)
+    print(res0)
+    res1 = astar(bounds, goal, start, times, res0)
+    print(res1)
+    res2 = astar(bounds, start, goal, times, res1)
+    print(res2)
+    print()
+    return res2
+
+def astar(bounds, start, goal, times, start_round=0):
+    mod = len(times)
+    res = float('inf')
+    pruned = 0
+    # earliest time we've seen each state
+    visited = {}
+
+    q = PriorityQueue()
+    q.put(PrioritizedItem((start - goal).manhattan(), (start, start_round)))
+
+    while q.qsize() > 0:
+        item = q.get()
+        pos, round = item.item
+        if round < visited.get((pos, round % mod), float('inf')):
+            visited[(pos, round % mod)] = round
+        if pos == goal:
+            print(pos, round)
+            if round < res:
+                res = round
+            continue
+        blizzards = times[(round + 1) % mod]
+        # order matters a bit here - prefer not to backtrack
+        possible_actions = [DOWN, RIGHT, WAIT, UP, LEFT]
+        for action in possible_actions:
+            next_pos = pos + DIRECTIONS[action]
+            next_round = round + 1
+            if next_pos not in bounds or next_pos.x <= 0 or next_pos.x >= (bounds.w - 1) or next_pos.y <= 0 and next_pos != start and next_pos != goal or next_pos.y >= (bounds.h - 1) and next_pos != goal and next_pos != start:
+                # invalid position
+                continue
+            if visited.get((next_pos, next_round % mod), float('inf')) <= next_round:
+                # we've already visited this state earlier, prune
+                pruned += 1
+                continue
+            if (next_pos - goal).manhattan() + round > res:
+                # we already know a better solution than the best case for this state
+                pruned += 1
+                continue
+            if next_pos not in [b[0] for b in blizzards]:
+                q.put(PrioritizedItem((next_pos - goal).manhattan(), (next_pos, next_round)))
+    return res
+
 
 def test_solve_part2():
     data = parse(fileinput.input(TEST_FILE))
-    assert solve_part2(data) == None
+    assert solve_part2(*data) == 54
 
 
 if __name__ == '__main__':
@@ -157,6 +212,6 @@ if __name__ == '__main__':
     data = parse(lines)
     part1 = solve_part1(*data)
     data = parse(lines)
-    part2 = solve_part2(data)
+    part2 = solve_part2(*data)
     print(part1)
     print(part2)
