@@ -5,6 +5,7 @@ from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
 from functools import reduce
 from util import *
+import pytest
 
 
 TEST_FILE = "test17.txt"
@@ -92,97 +93,83 @@ def test_solve_part1():
     data = parse(fileinput.input(TEST_FILE))
     assert solve_part1(data) == 3068
 
-def line(n, sym='#'):
-    """
-    >>> line(1)
-    '......#'
-    >>> line(10)
-    '...#.#.'
-    """
-    return ''.join([sym if (n>>(6-i))%2 else '.' for i in range(7)])
-
-def pr2(grid, rock=None, pos=None):
-    g = Grid([line(n) for n in grid])
-    if rock:
-        r = Grid([line(n) for n in rock])
-        merge(g, r, Vec2(0, pos.y), '@')
-    print()
-    print(g[::-1].compact())
-
-def collide2(grid, rock, pos):
-    for y in range(len(rock)):
-        if y + pos.y >= len(grid):
-            return False
-        if grid[y + pos.y] & rock[y]:
-            return True
-    return False
-
-def merge2(grid, rock, pos):
-    for y in range(len(rock)):
-        while y + pos.y >= len(grid):
-            grid.append(0)
-        grid[y + pos.y] = grid[y + pos.y] | rock[y]
-    while grid[-4] != 0:
-        grid.append(0)
-
-rocks2 = [
-        [0b1111000],
-        [0b0100000, 0b1110000, 0b0100000],
-        [0b1110000, 0b0010000, 0b0010000],
-        [0b1000000, 0b1000000, 0b1000000, 0b1000000],
-        [0b1100000, 0b1100000]]
-
-def solve_part2(data):
-    grid = [0]*4
-    pr2(grid)
-    rock_iter = itertools.cycle(rocks2)
-    move_iter = itertools.cycle(data)
-    offset = 0
-    for i in range(1000000000000):
-        if i % 2000 == 0:
-            print(i)
-        rock = next(rock_iter)
+def simulate(data, grid, rounds, n_rock, n_move):
+    orig_height = len(grid)
+    for i in range(rounds):
+        rock = rocks[n_rock]
+        n_rock = (n_rock + 1) % len(rocks)
         pos = Vec2(2, len(grid)-1)
-        rock = [n>>2 for n in rock]
         while True:
-            move = next(move_iter)
+            move = data[n_move]
+            n_move = (n_move + 1) % len(data)
             if move == '<' and pos.x > 0:
                 pos -= (1, 0)
-                rock = [n<<1 for n in rock]
-                if collide2(grid, rock, pos):
+                if collide(grid, rock, pos):
                     pos += (1, 0)
-                    rock = [n>>1 for n in rock]
-                #pr2(grid, rock, pos)
-            elif move == '>' and all((n%2==0 for n in rock)):
+                #pr(grid, rock, pos)
+            elif move == '>' and pos.x + len(rock[0]) < len(grid[0]):
                 pos += (1, 0)
-                rock = [n>>1 for n in rock]
-                if collide2(grid, rock, pos):
+                if collide(grid, rock, pos):
                     pos -= (1, 0)
-                    rock = [n<<1 for n in rock]
-                #pr2(grid, rock, pos)
+                #pr(grid, rock, pos)
             pos -= (0, 1)
             if pos.y < 0:
                 pos += (0, 1)
-                merge2(grid, rock, pos)
+                merge(grid, rock, pos)
                 break
-            if collide2(grid, rock, pos):
+            if collide(grid, rock, pos):
                 pos += (0, 1)
-                merge2(grid, rock, pos)
+                merge(grid, rock, pos)
                 break
-            #pr2(grid, rock, pos)
-        #print()
-        #print(grid[::-1].compact())
-        #pr2(grid)
-        if len(grid) > 1000:
-            offset += len(grid) - 500
-            grid = grid[-500:]
-    while grid[-1] == 0:
-        del grid[-1]
-    return len(grid) + offset
+            #pr(grid, rock, pos)
+    return n_rock, n_move, len(grid) - orig_height
+
+def solve_part2(data):
+    grid = Grid.of('.', 7, 4)
+    n_rock = 0
+    n_move = 0
+    known_cycles = {}
+    for i in range(1000000000000//len(rocks)):
+        # initial setup
+        n_rock, next_move, added_height = simulate(data, grid, len(rocks), n_rock, n_move)
+        #print(f'{n_move=} {added_height=}')
+        known_cycles[n_move] = added_height
+        n_move = next_move
+        if next_move in known_cycles:
+            break
+    print(f'start new cycle at {i=} {n_move=}')
+    i0 = i
+    repeat_move = next_move
+    grid0 = Grid(grid)
+    for i in range(i0 + 1, 1000000000000//len(rocks)):
+        # find cycle length
+        n_rock, next_move, added_height = simulate(data, grid, len(rocks), n_rock, n_move)
+        #print(f'{n_move=} {added_height=}')
+        known_cycles[n_move] = added_height
+        n_move = next_move
+        if next_move == repeat_move:
+            break
+    print(f'repeat at {i=} {n_move=}')
+    cycle_length = i - i0
+    print(f'{cycle_length=}')
+    added_height_per_cycle = len(grid) - len(grid0)
+    print(f'{added_height_per_cycle=}')
+    height_after_first_cycle = len(grid) - 4
+    print(f'{height_after_first_cycle=}')
+    # do full cycles
+    remaining = 1000000000000 // len(rocks) - i - 1
+    remaining_full_cycles = remaining // cycle_length
+    height = height_after_first_cycle + added_height_per_cycle * remaining_full_cycles
+    remaining -= remaining_full_cycles * cycle_length
+    print(f'{remaining=}')
+    for i in range(remaining):
+        n_rock, n_move, added_height = simulate(data, grid, len(rocks), n_rock, n_move)
+        height += added_height
+    return height
 
 def test_solve_part2():
     data = parse(fileinput.input(TEST_FILE))
-    assert solve_part2(data) == 3068
+    assert solve_part2(data) == 1514285714288
 
 
 if __name__ == '__main__':
