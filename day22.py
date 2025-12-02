@@ -146,7 +146,8 @@ def fold(grid, size=50):
         if pos.y + size < len(grid):
             # check down
             visit(Vec2(pos.x, pos.y + size), facing, face)
-    visit(pos, 0, 'F')
+    visit(pos, 'UF', 'F')
+    print(visited)
     print(res)
     #folded = Grid(grid)
     #for c in Rect(pos, w=size, h=size).coords():
@@ -177,6 +178,7 @@ if __name__ == '__main__':
     part1 = solve_part1(grid, instructions)
     print(part1)
     grid, instructions = parse(lines)
+    print(fold(grid, size=50))
     part2 = solve_part2(grid, instructions)
     print(part1)
     print(part2)
